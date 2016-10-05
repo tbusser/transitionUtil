@@ -109,7 +109,15 @@
 		// When the index is -1 it means the property to get the transition
 		// property for doesn't have a transition defined for it.
 		if (propertyIndex === -1) {
-			return 0;
+			// The property was not explicitly mentioned in the CSS. It may
+			// still be implicitly be set through the "all" value. Try to get
+			// the index for "all" in the array
+			propertyIndex = properties.indexOf(settings.valueAll);
+			// Check if the index is still -1, when it is we know for sure there
+			// is no transition for the specified CSS property.
+			if (propertyIndex === -1) {
+				return 0;
+			}
 		}
 
 		// The list of timings doesn't have to match the list of properties.
@@ -158,7 +166,7 @@
 
 
 	/* ====================================================================== *\
-        PUBLIC API
+        	PUBLIC API
 	\* ====================================================================== */
 	/**
 	 * Returns the transition delay set on the provided element for the
@@ -255,7 +263,7 @@
 
 
 	/* ====================================================================== *\
-        INIT METHODS
+        	INIT METHODS
 	\* ====================================================================== */
 	function init() {
 		// Create an element which we can use to test the transition property.
