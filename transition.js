@@ -99,25 +99,49 @@
 	 */
 	function getTimingForProperty(element, property, transitionTimingProperty) {
 		var styles = window.getComputedStyle(element),
-			properties = styles[settings.propertyProperty].split(', '),
-			timings = styles[transitionTimingProperty].split(', ');
+		    properties = styles[settings.propertyProperty].split(', '),
+		    timings = styles[transitionTimingProperty].split(', ');
+				
+		// From the W3C specs:
+		// If a property is specified multiple times in the value of
+		// ‘transition-property’ (either on its own, via a shorthand that
+		// contains it, or via the ‘all’ value), then the transition that starts
+		// uses the duration, delay, and timing function at the index
+		// corresponding to the last item in the value of ‘transition-property’
+		// that calls for animating that property.
 
-		// Find the index of the property in the array of properties
-		// which have a transition defined for them.
-		var propertyIndex = properties.indexOf(property);
+		// 1: Find the last index of the property in the array of properties
+		//    which have a transition defined for them.
+		// 2: Find the last index of the "all" value in the array of properties
+		//    which have a transition defined for them.
+		// 3: Initialize the index of the shorthand property at -1 (not found).
+		var propertyIndex = properties.lastIndexOf(property),             // [1]
+		    allValueIndex = properties.lastIndexOf(settings.valueAll),    // [2]
+		    shorthandIndex = -1;                                          // [3]
 
+		// Check if the property has a hyphen in its name. If it does we will
+		// also have to check if the shorthand property is defined in the list
+		// of properties to transition.
+		if (property.indexOf('-') > -1) {
+			// Get the name of the shorthand property by taking all the
+			// characters from the property name up to the first occurrence of
+			// the hyphen
+			var shorthand = property.substr(0, property.indexOf('-'));
+			// Now find the last index of the shorthand property in the list of
+			// properties to transition.
+			shorthandIndex = properties.lastIndexOf(shorthand);
+		}
+
+		// Now we finally have all the info needed to know at which index to
+		// look for the timing value. According to the specs the last defined
+		// property is the one that should be followed when resolving which to
+		// use.
+		var index = Math.max(propertyIndex, allValueIndex, shorthandIndex);
+		
 		// When the index is -1 it means the property to get the transition
 		// property for doesn't have a transition defined for it.
-		if (propertyIndex === -1) {
-			// The property was not explicitly mentioned in the CSS. It may
-			// still be implicitly be set through the "all" value. Try to get
-			// the index for "all" in the array
-			propertyIndex = properties.indexOf(settings.valueAll);
-			// Check if the index is still -1, when it is we know for sure there
-			// is no transition for the specified CSS property.
-			if (propertyIndex === -1) {
-				return 0;
-			}
+		if (index === -1) {
+			return 0;
 		}
 
 		// The list of timings doesn't have to match the list of properties.
@@ -127,14 +151,14 @@
 		// needed. This can cause a difference in transition durations between
 		// these browsers. For now we will mimic the behaviour from Chrome, IE
 		// and Safari.
-		if (propertyIndex >= timings.length) {
-			propertyIndex = timings.length - 1;
+		if (index >= timings.length) {
+			index = timings.length - 1;
 		}
 
 		// The value will be something like 0.3s. parseFloat will ignore
 		// all input after the first non-number so there is no need to
 		// sanatize the timing before wo process it.
-		var value = parseFloat(timings[propertyIndex]);
+		var value = parseFloat(timings[index]);
 		// We will convert the timing into milliseconds.
 		return (value * 1000);
 	}
@@ -228,7 +252,12 @@
 					// when the event is not null we need to check if the
 					// requested property is that one that has completed its
 					// transition.
-					if (event == null || event.propertyName === property) {
+					// When the CSS specifies "all" as the CSS property to
+					// transition we still get the individual CSS properties
+					// that have changed. If the caller specified "all" as the
+					// property to monitor we can just resolve the promise at
+					// the first time the transitionend event has been received.
+					if (event == null || event.propertyName === property || property === settings.valueAll) {
 						// The transition of the property has completed, we can
 						// clear the backup timeout and remove the event
 						// listener we had attached.
