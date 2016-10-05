@@ -5,6 +5,7 @@ Small JS utility, returns a promise which is resolved when a transition has ende
 Say you want to do something once a transition on an element has ended. This utility will do all the heavy lifting for you and gives you a promises which is resolved once the transition has ended. Now I hear you think, what heavy lifting does it perform me? Glad you asked. The utility takes care of the following:
 - It checks if the browser uses the standard transition properties and event name or if it uses vendor prefixed versions.
 - It will calculate the total duration of the transition by combining the transition duration and transition delay.
+- When determing the duration or delay it will take into account the [W3C specs](https://www.w3.org/TR/css3-transitions/#transition-property-property) to determine if the specified property, the "all" value (if specified as a property to transition), or a shorthand property (if specified as a property to transition) should be used.
 - It uses a timeout to resolve the promise if for whatever reason the transitionend event is never dispatched.
 
 ## That sounds awesome, are there any downsides?
