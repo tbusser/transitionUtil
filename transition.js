@@ -19,7 +19,8 @@
 			propertyDelay      : 'transitionDelay',
 			propertyDuration   : 'transitionDuration',
 			propertyProperty   : 'transitionProperty',
-			timeoutPadding     : 50
+			timeoutPadding     : 50,
+			valueAll           : 'all'
 		},
 		transitionsSupported = true;
 	/* == VARIABLES ========================================================= */
@@ -81,6 +82,37 @@
 		return false;
 	}
 
+	function resolvePropertyToTransitionPropertyIndex(transitionPropertyList, property) {
+		// 1: Find the last index of the property in the array of properties
+		//    which have a transition defined for them.
+		// 2: Find the last index of the "all" value in the array of properties
+		//    which have a transition defined for them.
+		// 3: Initialize the index of the shorthand property at -1 (not found).
+		var propertyIndex = transitionPropertyList.lastIndexOf(property),             // [1]
+			allValueIndex = transitionPropertyList.lastIndexOf(settings.valueAll),    // [2]
+			shorthandIndex = -1,                                                      // [3]
+			shorthand;
+
+		// Check if the property has a hyphen in its name. If it does we will
+		// also have to check if the shorthand property is defined in the list
+		// of properties to transition.
+		if (property.indexOf('-') > -1) {
+			// Get the name of the shorthand property by taking all the
+			// characters from the property name up to the first occurrence of
+			// the hyphen
+			shorthand = property.substr(0, property.indexOf('-'));
+			// Now find the last index of the shorthand property in the list of
+			// properties to transition.
+			shorthandIndex = transitionPropertyList.lastIndexOf(shorthand);
+		}
+
+		// Now we finally have all the info needed to know at which index to
+		// look for the timing value.
+		var index = Math.max(propertyIndex, allValueIndex, shorthandIndex);
+
+		return index;
+	}
+
 	/**
 	 * Returns the duration or delay of the transition for a specific
 	 * property on a specific DOM element.
@@ -99,47 +131,11 @@
 	 */
 	function getTimingForProperty(element, property, transitionTimingProperty) {
 		var styles = window.getComputedStyle(element),
-		    properties = styles[settings.propertyProperty].split(', '),
-		    timings = styles[transitionTimingProperty].split(', ');
-				
-		// From the W3C specs:
-		// If a property is specified multiple times in the value of
-		// ‘transition-property’ (either on its own, via a shorthand that
-		// contains it, or via the ‘all’ value), then the transition that starts
-		// uses the duration, delay, and timing function at the index
-		// corresponding to the last item in the value of ‘transition-property’
-		// that calls for animating that property.
+			properties = styles[settings.propertyProperty].split(', '),
+			timings = styles[transitionTimingProperty].split(', '),
+			resolvedProperty = resolvePropertyToTransitionPropertyIndex(properties, property),
+			index = resolvedProperty[settings.indexRPIndex];
 
-		// 1: Find the last index of the property in the array of properties
-		//    which have a transition defined for them.
-		// 2: Find the last index of the "all" value in the array of properties
-		//    which have a transition defined for them.
-		// 3: Initialize the index of the shorthand property at -1 (not found).
-		var propertyIndex = properties.lastIndexOf(property),             // [1]
-		    allValueIndex = properties.lastIndexOf(settings.valueAll),    // [2]
-		    shorthandIndex = -1;                                          // [3]
-
-		// Check if the property has a hyphen in its name. If it does we will
-		// also have to check if the shorthand property is defined in the list
-		// of properties to transition.
-		if (property.indexOf('-') > -1) {
-			// Get the name of the shorthand property by taking all the
-			// characters from the property name up to the first occurrence of
-			// the hyphen
-			var shorthand = property.substr(0, property.indexOf('-'));
-			// Now find the last index of the shorthand property in the list of
-			// properties to transition.
-			shorthandIndex = properties.lastIndexOf(shorthand);
-		}
-
-		// Now we finally have all the info needed to know at which index to
-		// look for the timing value. According to the specs the last defined
-		// property is the one that should be followed when resolving which to
-		// use.
-		var index = Math.max(propertyIndex, allValueIndex, shorthandIndex);
-		
-		// When the index is -1 it means the property to get the transition
-		// property for doesn't have a transition defined for it.
 		if (index === -1) {
 			return 0;
 		}
@@ -240,6 +236,7 @@
 	function getTransitionEndPromise(element, property) {
 		return new Promise(function(resolve, reject) {
 			var totalDuration = getTotalLength(element, property);
+
 			// When the total duration is 0 we can immediately resolve the
 			// promise as the property to watch for is not animated.
 			if (totalDuration === 0) {
