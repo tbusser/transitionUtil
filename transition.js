@@ -133,8 +133,7 @@
 		var styles = window.getComputedStyle(element),
 			properties = styles[settings.propertyProperty].split(', '),
 			timings = styles[transitionTimingProperty].split(', '),
-			resolvedProperty = resolvePropertyToTransitionPropertyIndex(properties, property),
-			index = resolvedProperty[settings.indexRPIndex];
+			index = resolvePropertyToTransitionPropertyIndex(properties, property);
 
 		if (index === -1) {
 			return 0;
