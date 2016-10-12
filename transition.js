@@ -140,14 +140,14 @@
 		}
 
 		// The list of timings doesn't have to match the list of properties.
-		// When this is the case Chrome, IE and Safari just use the last value
-		// of the timings list as a value for the other properties to transition.
-		// Firefox follows the specification and repeats the timings list as
-		// needed. This can cause a difference in transition durations between
-		// these browsers. For now we will mimic the behaviour from Chrome, IE
-		// and Safari.
+		// When this is the case the specs state that the list of timings have
+		// to be repeated till it matches the property list.
+		// Say we have property index 5 and a timing list of 3 [x,y,z] then the
+		// timing should be y. By peforming a modulo with the length of the
+		// timing list (3) we can determine the corrected index. IE: 5 % 3 = 2,
+		// at index 2 we find y.
 		if (index >= timings.length) {
-			index = timings.length - 1;
+			index = index % (timings.length);
 		}
 
 		// The value will be something like 0.3s. parseFloat will ignore
@@ -156,29 +156,6 @@
 		var value = parseFloat(timings[index]);
 		// We will convert the timing into milliseconds.
 		return (value * 1000);
-	}
-
-	/**
-	 * Returns the total time it takes for the transition of the specified
-	 * property to complete. This is the sum of the transition delay and
-	 * transition duration as specified for the CSS property.
-	 *
-	 * @param {HTMElement} element The element whose CSS property the transition
-	 *                             length should be returned for.
-	 * @param {String} property    The name of the property whose transition
-	 *                             length should be returned.
-	 *
-	 * @returns {Number} When the requested property was not found in the
-	 *                   properties with a transition than the result is
-	 *                   0. When the specified property does have a transtion
-	 *                   the result is the sum of the transition delay and
-	 *                   duration properties in milliseconds.
-	 */
-	function getTotalLength(element, property) {
-		var result = getTimingForProperty(element, property, settings.propertyDelay);
-		result += getTimingForProperty(element, property, settings.propertyDuration);
-
-		return result;
 	}
 	/* == PRIVATE METHODS =================================================== */
 
@@ -218,6 +195,29 @@
 	}
 
 	/**
+	 * Returns the total time it takes for the transition of the specified
+	 * property to complete. This is the sum of the transition delay and
+	 * transition duration as specified for the CSS property.
+	 *
+	 * @param {HTMElement} element The element whose CSS property the transition
+	 *                             length should be returned for.
+	 * @param {String} property    The name of the property whose transition
+	 *                             length should be returned.
+	 *
+	 * @returns {Number} When the requested property was not found in the
+	 *                   properties with a transition than the result is
+	 *                   0. When the specified property does have a transtion
+	 *                   the result is the sum of the transition delay and
+	 *                   duration properties in milliseconds.
+	 */
+	function getTotalDuration(element, property) {
+		var result = getTimingForProperty(element, property, settings.propertyDelay);
+		result += getTimingForProperty(element, property, settings.propertyDuration);
+
+		return result;
+	}
+
+	/**
 	 * Returns a promise which will be resolved when one of the following
 	 * scenarios is met:
 	 * - The transition for the combination of element and property has a total
@@ -234,7 +234,7 @@
 	 */
 	function getTransitionEndPromise(element, property) {
 		return new Promise(function(resolve, reject) {
-			var totalDuration = getTotalLength(element, property);
+			var totalDuration = getTotalDuration(element, property);
 
 			// When the total duration is 0 we can immediately resolve the
 			// promise as the property to watch for is not animated.
@@ -260,7 +260,11 @@
 						clearTimeout(backupTimeout);
 						element.removeEventListener(settings.eventTransitionEnd, handleTransitionEndEvent);
 						// Resolve the promise.
-						resolve();
+						resolve({
+							duration          : (event) ? event.elapsedTime : totalDuration,
+							property          : (event) ? event.propertyName : property,
+							resolvedByTimeout : (event == null)
+						});
 					}
 				};
 
@@ -311,6 +315,7 @@
 	return {
 		getDelay                : getDelay,
 		getDuration             : getDuration,
+		getTotalDuration        : getTotalDuration,
 		getTransitionEndPromise : getTransitionEndPromise,
 		isSupported             : isSupported
 	};
