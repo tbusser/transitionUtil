@@ -9,26 +9,24 @@ Say you want to do something once a transition on an element has ended. This uti
 - It uses a timeout to resolve the promise if for whatever reason the transitionend event is never dispatched.
 
 ## That sounds awesome, are there any downsides?
-Well, there is one thing that might surprise you. Most browsers don't follow the [specification from the W3C](https://www.w3.org/TR/css3-transitions/#transitions) on how to deal with a difference in list size between the different transition properties. Take the following CSS:
-```css
-.example {
-	transition-property: opacity, left, top, width;
-	transition-duration: 2s, 1s;
-}
-```
-The W3C says the following on how browsers should handle this:
-> In the case where the lists of values in transition properties do not have the same length, the length of the ‘transition-property’ list determines the number of items in each list examined when starting transitions. The lists are matched up from the first value: excess values at the end are not used. If one of the other properties doesn't have enough comma-separated values to match the number of values of ‘transition-property’, the UA must calculate its used value by repeating the list of values until there are enough. 
-
-What you would expect to see is that the property `top` is transitioned over 2s and `width` over a time of 1s. At the time of writing only Firefox does this. Chrome, Safari, and Edge just use the last value from the list. So in these browsers the `top` and `width` properties are transitioned over 1s. This is also the behaviour of the utility. When calculating the total duration for the transition and it encounters a situation as in the example it will use the same method as Chrome, Safari, and Edge do.
-
-The other thing you may need to know is that the utility uses the ES6 Promise. You may have to use a [polyfill](https://github.com/stefanpenner/es6-promise) for it if you want to support browsers that don't have native support for it.
+Not really a downside but the utility uses the ES6 Promise. You may have to use a [polyfill](https://github.com/stefanpenner/es6-promise) for it if you want to support browsers that don't have native support for it.
 
 ## How about an example?
 Here is an example on how to use the utility:
 ```javascript
 var element = document.querySelector('.example');
-transitionUtil.getTransitionEndPromise(element, 'top').then(function() {
+transitionUtil.getTransitionEndPromise(element, 'top').then(function(resolveData) {
 	// Do something awesome now that the top has been transitioned to its new value.
+	// ResolveData has three properties:
+	// 1: duration, the time it took for the promise to be resolved as reported by the
+	//    transitionend event. If the timeout resolved the promise it will be the 
+	//    duration as determined from the CSS.
+	// 2: property, the name of the property, taken from the transitionend event, that 
+	//    triggered the transitionend event that caused the promise to be resolved. If
+	//    the timeout resolved the promise than it is always the property name you 
+	//    specified in the method call.
+	// 3: resolvedByTimeout, false if the promise was resolved by the transitionend event;
+	//    when the backup timeout fired this property is true.
 });
 ```
 
